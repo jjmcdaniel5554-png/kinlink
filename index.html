@@ -12,11 +12,12 @@
       content="Private Family Contact Directory, Birthdays, Emergency Quick-Dial, and Recipe Vault."
     />
     <meta name="theme-color" content="#115E59" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="KinLink" />
 
-    <!-- PWA Manifest & Icons (upload these PNG files next to index.html in your kinlink GitHub repo) -->
+    <!-- PWA manifest and icons: these files sit next to index.html in the kinlink GitHub repo -->
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
@@ -48,7 +49,15 @@
         display: flex;
         flex-direction: column;
         width: 100%;
+        height: 100vh;
         height: 100dvh;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      /* Teal strip behind the iPhone status bar when opened from the home screen icon */
+      .safe-top {
+        flex-shrink: 0;
+        height: env(safe-area-inset-top, 0px);
+        background: var(--teal);
       }
       #install-bar {
         display: none;
@@ -77,7 +86,6 @@
         height: 30px;
         border-radius: 7px;
         flex-shrink: 0;
-        background: #ffffff;
       }
       .bar-actions {
         display: flex;
@@ -128,9 +136,10 @@
         }
       }
     </style>
-  <script src="/_aistudio-iframe.js?v=29045eb3"></script></head>
+  </head>
   <body>
     <div class="shell">
+      <div class="safe-top"></div>
       <!-- Automatic 1-Tap Install Banner (shows ONLY in Chrome/Edge when installable & not yet installed) -->
       <div id="install-bar" role="region" aria-label="Install KinLink app icon">
         <div class="bar-left">
@@ -150,10 +159,7 @@
         </div>
       </div>
 
-      <!--
-        IMPORTANT: Replace PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_EXEC_URL_HERE
-        with your deployed KinLink Google Apps Script Web App URL ending in /exec
-      -->
+      <!-- KinLink Google Apps Script web app (the /exec address). Change only if you redeploy to a new address. -->
       <iframe
         id="kinlink-frame"
         title="KinLink Family Directory"
@@ -173,6 +179,10 @@
         var btnInstall = document.getElementById('btn-install-now');
         var btnDismiss = document.getElementById('btn-dismiss-bar');
         var frame = document.getElementById('kinlink-frame');
+
+        function barDismissed() {
+          try { return sessionStorage.getItem('kl_bar_dismissed') === '1'; } catch (e) { return false; }
+        }
 
         function notifyIframe(status) {
           if (!frame || !frame.contentWindow) return;
@@ -213,7 +223,7 @@
         window.addEventListener('beforeinstallprompt', function (e) {
           e.preventDefault();
           deferredPrompt = e;
-          if (!isInstalled && bar && sessionStorage.getItem('kl_bar_dismissed') !== '1') {
+          if (!isInstalled && bar && !barDismissed()) {
             bar.classList.add('visible');
           }
           notifyIframe('available');
@@ -231,13 +241,14 @@
         }
         if (btnDismiss) {
           btnDismiss.addEventListener('click', function () {
-            sessionStorage.setItem('kl_bar_dismissed', '1');
+            try { sessionStorage.setItem('kl_bar_dismissed', '1'); } catch (e) {}
             if (bar) bar.classList.remove('visible');
           });
         }
 
         // postMessage bridge so clicking "Install KinLink Icon" inside the GAS iframe triggers the parent prompt
         window.addEventListener('message', function (event) {
+          if (!frame || event.source !== frame.contentWindow) return;
           var data = event && event.data;
           if (!data || typeof data !== 'object') return;
           if (data.type === 'KINLINK_QUERY_INSTALL_STATUS') {
