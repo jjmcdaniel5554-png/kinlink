@@ -1,41 +1,260 @@
-<!-- Version: V2.3 GitHub Wrapper -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>KinLink</title>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="KinLink">
-  <meta name="application-name" content="KinLink">
-  <meta name="theme-color" content="#1e1b4b">
-  <!-- Classic Tree Emblem Icon for Bookmarks & Phone Home Screens -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231e1b4b' stroke='%23f59e0b' stroke-width='6'/><text x='50' y='68' font-size='56' text-anchor='middle'>🌳</text></svg>">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231e1b4b' stroke='%23f59e0b' stroke-width='6'/><text x='50' y='68' font-size='56' text-anchor='middle'>🌳</text></svg>">
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #f1f5f9;
-      font-family: sans-serif;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <!-- Replace PASTE_YOUR_GOOGLE_EXEC_URL_HERE below with your Google Apps Script /exec link -->
-  <iframe 
-    src="https://script.google.com/macros/s/AKfycbzvcClXMVCfJQsV474tO_U16mEmT--TEtYD9OG7iZCVHluJi2htemZM75UZ9LMUuWoOHw/exec" 
-    allow="clipboard-write; geolocation"
-    title="KinLink Family Directory">
-  </iframe>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>KinLink — Family Directory</title>
+    <meta
+      name="description"
+      content="Private Family Contact Directory, Birthdays, Emergency Quick-Dial, and Recipe Vault."
+    />
+    <meta name="theme-color" content="#115E59" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="KinLink" />
+
+    <!-- PWA Manifest & Icons (upload these PNG files next to index.html in your kinlink GitHub repo) -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+
+    <style>
+      :root {
+        --teal: #115e59;
+        --teal-dark: #0f4c48;
+        --paper: #f8f7f4;
+        --ink: #18181b;
+        --border: #e7e5e4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--paper);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--ink);
+        overflow: hidden;
+      }
+      .shell {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100dvh;
+      }
+      #install-bar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 16px;
+        background: var(--teal);
+        color: #ffffff;
+        font-size: 14px;
+        line-height: 1.35;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+        flex-shrink: 0;
+      }
+      #install-bar.visible {
+        display: flex;
+      }
+      .bar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .bar-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        flex-shrink: 0;
+        background: #ffffff;
+      }
+      .bar-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .btn-install {
+        appearance: none;
+        border: none;
+        background: #ffffff;
+        color: var(--teal-dark);
+        font-weight: 700;
+        font-size: 13px;
+        padding: 8px 14px;
+        border-radius: 7px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .btn-install:hover {
+        background: #f0fdfa;
+      }
+      .btn-dismiss {
+        appearance: none;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        background: transparent;
+        color: #ffffff;
+        font-size: 13px;
+        padding: 7px 11px;
+        border-radius: 7px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      #kinlink-frame {
+        flex: 1 1 auto;
+        width: 100%;
+        border: 0;
+        background: var(--paper);
+      }
+      @media (max-width: 520px) {
+        #install-bar {
+          flex-wrap: wrap;
+          padding: 10px 12px;
+        }
+        .bar-actions {
+          width: 100%;
+          justify-content: flex-end;
+        }
+      }
+    </style>
+  <script src="/_aistudio-iframe.js?v=29045eb3"></script></head>
+  <body>
+    <div class="shell">
+      <!-- Automatic 1-Tap Install Banner (shows ONLY in Chrome/Edge when installable & not yet installed) -->
+      <div id="install-bar" role="region" aria-label="Install KinLink app icon">
+        <div class="bar-left">
+          <img class="bar-icon" src="icon-192.png" alt="KinLink Tree Icon" />
+          <div>
+            <strong>Add KinLink Icon</strong>
+            <span style="opacity: 0.9"> — Open KinLink in 1 tap from your screen.</span>
+          </div>
+        </div>
+        <div class="bar-actions">
+          <button id="btn-install-now" class="btn-install" type="button">
+            Install KinLink Icon
+          </button>
+          <button id="btn-dismiss-bar" class="btn-dismiss" type="button">
+            Not Now
+          </button>
+        </div>
+      </div>
+
+      <!--
+        IMPORTANT: Replace PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_EXEC_URL_HERE
+        with your deployed KinLink Google Apps Script Web App URL ending in /exec
+      -->
+      <iframe
+        id="kinlink-frame"
+        title="KinLink Family Directory"
+        src="https://script.google.com/macros/s/AKfycbzvcClXMVCfJQsV474tO_U16mEmT--TEtYD9OG7iZCVHluJi2htemZM75UZ9LMUuWoOHw/exec"
+        allow="clipboard-write"
+      ></iframe>
+    </div>
+
+    <script>
+      (function () {
+        var deferredPrompt = null;
+        var isInstalled =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true;
+
+        var bar = document.getElementById('install-bar');
+        var btnInstall = document.getElementById('btn-install-now');
+        var btnDismiss = document.getElementById('btn-dismiss-bar');
+        var frame = document.getElementById('kinlink-frame');
+
+        function notifyIframe(status) {
+          if (!frame || !frame.contentWindow) return;
+          try {
+            frame.contentWindow.postMessage(
+              {
+                type: 'KINLINK_INSTALL_STATUS',
+                canInstall: Boolean(deferredPrompt) && !isInstalled,
+                isInstalled: isInstalled,
+                status: status || 'update',
+              },
+              '*'
+            );
+          } catch (e) {}
+        }
+
+        async function triggerNativeInstall() {
+          if (!deferredPrompt) {
+            notifyIframe('unavailable');
+            return;
+          }
+          try {
+            deferredPrompt.prompt();
+            var choice = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            if (bar) bar.classList.remove('visible');
+            if (choice && choice.outcome === 'accepted') {
+              isInstalled = true;
+              notifyIframe('installed');
+            } else {
+              notifyIframe('dismissed');
+            }
+          } catch (err) {
+            notifyIframe('error');
+          }
+        }
+
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault();
+          deferredPrompt = e;
+          if (!isInstalled && bar && sessionStorage.getItem('kl_bar_dismissed') !== '1') {
+            bar.classList.add('visible');
+          }
+          notifyIframe('available');
+        });
+
+        window.addEventListener('appinstalled', function () {
+          deferredPrompt = null;
+          isInstalled = true;
+          if (bar) bar.classList.remove('visible');
+          notifyIframe('installed');
+        });
+
+        if (btnInstall) {
+          btnInstall.addEventListener('click', triggerNativeInstall);
+        }
+        if (btnDismiss) {
+          btnDismiss.addEventListener('click', function () {
+            sessionStorage.setItem('kl_bar_dismissed', '1');
+            if (bar) bar.classList.remove('visible');
+          });
+        }
+
+        // postMessage bridge so clicking "Install KinLink Icon" inside the GAS iframe triggers the parent prompt
+        window.addEventListener('message', function (event) {
+          var data = event && event.data;
+          if (!data || typeof data !== 'object') return;
+          if (data.type === 'KINLINK_QUERY_INSTALL_STATUS') {
+            notifyIframe('status');
+          } else if (data.type === 'KINLINK_REQUEST_INSTALL') {
+            triggerNativeInstall();
+          }
+        });
+
+        if (frame) {
+          frame.addEventListener('load', function () {
+            setTimeout(function () {
+              notifyIframe('ready');
+            }, 600);
+          });
+        }
+      })();
+    </script>
+  </body>
 </html>
