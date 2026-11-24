@@ -172,6 +172,8 @@
       (function () {
         var deferredPrompt = null;
         var hasSignedIn = false;
+        var lastClientSource = null;
+        var lastClientOrigin = '*';
         var isInstalled =
           window.matchMedia('(display-mode: standalone)').matches ||
           window.navigator.standalone === true;
@@ -180,6 +182,15 @@
         var btnInstall = document.getElementById('btn-install-now');
         var btnDismiss = document.getElementById('btn-dismiss-bar');
         var frame = document.getElementById('kinlink-frame');
+
+        function isTrustedKinLinkOrigin(origin) {
+          if (typeof origin !== 'string') return false;
+          if (origin === 'https://script.google.com') return true;
+          if (origin.indexOf('https://') === 0 && origin.slice(-22) === '.googleusercontent.com' && origin.length > 30) {
+            return true;
+          }
+          return false;
+        }
 
         function barDismissed() {
           try { return localStorage.getItem('kl_bar_dismissed') === '1'; } catch (e) { return false; }
@@ -195,20 +206,24 @@
           }
         }
 
-        function notifyIframe(status) {
-          if (!frame || !frame.contentWindow) return;
+        function notifyIframe(status, explicitTarget, explicitOrigin) {
+          var payload = {
+            type: 'KINLINK_INSTALL_STATUS',
+            canInstall: Boolean(deferredPrompt) && !isInstalled,
+            isInstalled: isInstalled,
+            isStandalone: isInstalled, // the KinLink app reads this name
+            status: status || 'update',
+          };
+          var targetWin = explicitTarget || lastClientSource || (frame && frame.contentWindow);
+          var targetOrigin = explicitOrigin || (lastClientSource ? lastClientOrigin : '*');
+          if (!targetWin) return;
           try {
-            frame.contentWindow.postMessage(
-              {
-                type: 'KINLINK_INSTALL_STATUS',
-                canInstall: Boolean(deferredPrompt) && !isInstalled,
-                isInstalled: isInstalled,
-                isStandalone: isInstalled, // the KinLink app reads this name
-                status: status || 'update',
-              },
-              '*'
-            );
-          } catch (e) {}
+            targetWin.postMessage(payload, targetOrigin || '*');
+          } catch (e) {
+            if (frame && frame.contentWindow && targetWin !== frame.contentWindow) {
+              try { frame.contentWindow.postMessage(payload, '*'); } catch (e2) {}
+            }
+          }
         }
 
         async function triggerNativeInstall() {
@@ -258,16 +273,20 @@
           });
         }
 
-        // postMessage bridge: wait for KINLINK_SIGNED_IN before showing banner, and handle install queries/triggers
+        // V3.3 (A2): Three-frame postMessage bridge using strict Apps Script origin check and remembering event.source
         window.addEventListener('message', function (event) {
-          if (!frame || event.source !== frame.contentWindow) return;
+          if (!isTrustedKinLinkOrigin(event.origin)) return;
           var data = event && event.data;
           if (!data || typeof data !== 'object') return;
+          if (event.source) {
+            lastClientSource = event.source;
+            lastClientOrigin = event.origin;
+          }
           if (data.type === 'KINLINK_SIGNED_IN') {
             hasSignedIn = true;
             maybeShowInstallBar();
           } else if (data.type === 'KINLINK_QUERY_INSTALL_STATUS') {
-            notifyIframe('status');
+            notifyIframe('status', event.source, event.origin);
           } else if (data.type === 'KINLINK_REQUEST_INSTALL') {
             triggerNativeInstall();
           }
