@@ -136,7 +136,7 @@
         }
       }
     </style>
-  </head>
+  <script src="/_aistudio-iframe.js?v=29045eb3"></script></head>
   <body>
     <div class="shell">
       <div class="safe-top"></div>
@@ -171,6 +171,7 @@
     <script>
       (function () {
         var deferredPrompt = null;
+        var hasSignedIn = false;
         var isInstalled =
           window.matchMedia('(display-mode: standalone)').matches ||
           window.navigator.standalone === true;
@@ -181,7 +182,17 @@
         var frame = document.getElementById('kinlink-frame');
 
         function barDismissed() {
-          try { return sessionStorage.getItem('kl_bar_dismissed') === '1'; } catch (e) { return false; }
+          try { return localStorage.getItem('kl_bar_dismissed') === '1'; } catch (e) { return false; }
+        }
+
+        function markBarDismissed() {
+          try { localStorage.setItem('kl_bar_dismissed', '1'); } catch (e) {}
+        }
+
+        function maybeShowInstallBar() {
+          if (hasSignedIn && deferredPrompt && !isInstalled && bar && !barDismissed()) {
+            bar.classList.add('visible');
+          }
         }
 
         function notifyIframe(status) {
@@ -192,6 +203,7 @@
                 type: 'KINLINK_INSTALL_STATUS',
                 canInstall: Boolean(deferredPrompt) && !isInstalled,
                 isInstalled: isInstalled,
+                isStandalone: isInstalled, // the KinLink app reads this name
                 status: status || 'update',
               },
               '*'
@@ -211,6 +223,7 @@
             if (bar) bar.classList.remove('visible');
             if (choice && choice.outcome === 'accepted') {
               isInstalled = true;
+              markBarDismissed();
               notifyIframe('installed');
             } else {
               notifyIframe('dismissed');
@@ -223,15 +236,14 @@
         window.addEventListener('beforeinstallprompt', function (e) {
           e.preventDefault();
           deferredPrompt = e;
-          if (!isInstalled && bar && !barDismissed()) {
-            bar.classList.add('visible');
-          }
+          maybeShowInstallBar();
           notifyIframe('available');
         });
 
         window.addEventListener('appinstalled', function () {
           deferredPrompt = null;
           isInstalled = true;
+          markBarDismissed();
           if (bar) bar.classList.remove('visible');
           notifyIframe('installed');
         });
@@ -241,17 +253,20 @@
         }
         if (btnDismiss) {
           btnDismiss.addEventListener('click', function () {
-            try { sessionStorage.setItem('kl_bar_dismissed', '1'); } catch (e) {}
+            markBarDismissed();
             if (bar) bar.classList.remove('visible');
           });
         }
 
-        // postMessage bridge so clicking "Install KinLink Icon" inside the GAS iframe triggers the parent prompt
+        // postMessage bridge: wait for KINLINK_SIGNED_IN before showing banner, and handle install queries/triggers
         window.addEventListener('message', function (event) {
           if (!frame || event.source !== frame.contentWindow) return;
           var data = event && event.data;
           if (!data || typeof data !== 'object') return;
-          if (data.type === 'KINLINK_QUERY_INSTALL_STATUS') {
+          if (data.type === 'KINLINK_SIGNED_IN') {
+            hasSignedIn = true;
+            maybeShowInstallBar();
+          } else if (data.type === 'KINLINK_QUERY_INSTALL_STATUS') {
             notifyIframe('status');
           } else if (data.type === 'KINLINK_REQUEST_INSTALL') {
             triggerNativeInstall();
